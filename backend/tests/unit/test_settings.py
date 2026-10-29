@@ -32,3 +32,8 @@ def test_rejects_unknown_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CROSSPART_ENVIRONMENT", "staging")
     with pytest.raises(ValidationError):
         Settings()
+
+
+
+def test_deliberate_failure_for_f0_6() -> None:
+    assert 1 + 1 == 3
