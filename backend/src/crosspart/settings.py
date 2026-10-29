@@ -13,5 +13,5 @@ class Settings(BaseSettings):
     database_url: PostgresDsn
 
 
-def get_settings() -> Settings:
+def get_settings() -> str:
     return Settings()
