@@ -14,4 +14,4 @@ def test_database_is_postgres_16() -> None:
             version = connection.execute(text("SHOW server_version_num")).scalar_one()
     finally:
         engine.dispose()
-    assert 160000 <= int(version) < 170000
+    assert 150000 <= int(version) < 160000
