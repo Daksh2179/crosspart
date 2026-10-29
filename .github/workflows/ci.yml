@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - run: uv run --no-sync ruff check --output-format=github .
+      - run: uv run --no-sync ruff format --check .
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - run: uv run --no-sync mypy
+
+  unit:
+    name: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - run: uv run --no-sync pytest -m "not integration" -v
+
+  integration:
+    name: integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: crosspart
+          POSTGRES_PASSWORD: crosspart
+          POSTGRES_DB: crosspart
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crosspart -d crosspart"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CROSSPART_ENVIRONMENT: ci
+      CROSSPART_DATABASE_URL: postgresql+psycopg://crosspart:crosspart@localhost:5432/crosspart
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - run: uv run --no-sync pytest -m integration -v
+
+  migrations:
+    name: migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: crosspart
+          POSTGRES_PASSWORD: crosspart
+          POSTGRES_DB: crosspart
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crosspart -d crosspart"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CROSSPART_ENVIRONMENT: ci
+      CROSSPART_DATABASE_URL: postgresql+psycopg://crosspart:crosspart@localhost:5432/crosspart
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - run: uv run --no-sync alembic upgrade head
+      - run: uv run --no-sync alembic downgrade base
+      - run: uv run --no-sync alembic upgrade head
+      - run: uv run --no-sync alembic check
